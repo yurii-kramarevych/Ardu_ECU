@@ -1,3 +1,5 @@
+#include <Arduino_BuiltIn.h>
+
 /*
 //Rev3 - Added Trial modes trialModeStarter and trialModeFuelPump to determine the best settings for Final Setup
 //Rev4 - use pulse counter module intead or interrupt to measure turbine RPM
@@ -423,6 +425,8 @@ float voltCorrection=1; //correction factor applied to resistance ratio to get a
 float voltage=0;//Calculated voltage value
 //Variables to store data at Abort condition
 
+ 
+
  int abRPMAvg=0;
  int abexTemp=0;
  int abfuelFlowTarget=0; //output signal for fuel pump  0-1000
@@ -439,6 +443,9 @@ float voltage=0;//Calculated voltage value
   int abstartStage=0;
 float  abvoltage=voltage;
 byte  aberrorCode=errorCode;
+
+//TEST
+int counterMy = 0;
 
 //RPM Counter
  void IRAM_ATTR CounterOverflow(void *arg) {                  // Interrupt for overflow of pulse counter
@@ -563,17 +570,29 @@ xTaskCreatePinnedToCore(
 }
 
 void loop(void) {
-  
+
+ Serial.print("Counter = ");
+ Serial.println(counterMy++);
+ Serial.print("step 1 ,"); 
+
+//test gas flow
+      gasFlow=true;
+      gasOnTime=millis();
+
+
  if((startServer)&&(!serverStarted)&&(millis()>5000))//5 seconds before WiFi startup is given to allow power to stabilize
  {
    Serial.print("loop() running on core ");
   Serial.println(xPortGetCoreID());
   WebServerFunction();//Start webserver if 5 seconds have passed and WiFi server is not started
-  initSD();//Start SD recording
+//  initSD();//Start SD recording
  }
+
+Serial.print("step 2 ,");
  
  if(serverStarted) dnsServer.processNextRequest();//process DNS request
    measuredLoopTime=millis()-mainLoopTimeOld;//calculate execution time of the program
+ Serial.print("step 3");
    if (measuredLoopTime>maxLoopTime) maxLoopTime=measuredLoopTime;
    mainLoopTimeOld=millis();
   buttonA.read();
@@ -582,6 +601,11 @@ void loop(void) {
   ReadRPM();
   ReadTempSensors(); //100ms loop time
   ReadVoltage();
+
+ Serial.print("step 4 ,");
+digitalWrite(GasPin,HIGH);
+ Serial.print("gag pin enable");
+
 
 //  if (errorCode==0)
 // {
@@ -608,8 +632,8 @@ void loop(void) {
       break;
 
       case modeStarterOnly://Test mode where only starter is controlled by throttle and gas is controlled by mode switch
-      StarterOnlyFunction();
-      break;
+       StarterOnlyFunction();
+       break;
 
       case modeFuelPumpOnly://Test mode where only fuel pump is controlled by throttle and gas,glow and starter is controlled by mode switch
       FuelPumpOnlyFunction();
@@ -621,10 +645,11 @@ void loop(void) {
 //}
 }
   ControlOutput();
+ Serial.print(" step 5 ,");
 
   UpdateWebData();// Update web server with new data
   if (ignitionState) UpdateUsageData();
- 
+ Serial.print("step 6 ,"); 
 }
 
 //Task1code: This is like a second loop functioning running on core0. By default main loop runs on Core 1 of ESP32
@@ -635,6 +660,7 @@ void Task1code( void * pvParameters ){
   for(;;){      
    if(sdavailable && writefile)  SaveData();
         vTaskDelay(10 / portTICK_PERIOD_MS);
+ //       Serial.print("step second loop function");
   } 
 }
 void UpdateWebData()
@@ -650,7 +676,7 @@ void UpdateWebData()
 }
 }
 }
-
+//Serial.print(" step 7"); 
 void ReadVoltage()
 { 
   if((millis()-voltageLoopTimeOld)>voltageLoopTime)
@@ -711,7 +737,7 @@ RCLoopTimeOld=millis();
   }
 }
 
-
+ //Serial.print("step 8"); 
 void ReadTempSensors()
 {
   if ((millis()-tempTimeOld)>tempLoopTime)
@@ -745,7 +771,7 @@ void ReadTempSensors()
   }
  
 }
-
+ 
   void ReadSettings()//Read settings from Flash memory
 {  //name of the key in key-value pair should be maximum 15 characters
    preferences.begin("settings",true);
@@ -794,14 +820,19 @@ maxPumpVolt=preferences.getFloat("maxPumpVolt",maxPumpVolt);
  preferences.end();
 
 }   
+//Serial.printnl("step 9 starter ");
 void StarterOnlyFunction()//Test function where throttle will control starter 
 {
-
+ 
  //Gas flow control
-  if ((rcModeSignal>80)&&(glowPower==outMax))gasFlow=true;   //Switch on gas when mode switch is flipped on and glow plug is energized
-   if ((RPMAvg>gasOffRPM)||(RPMAvg<gasOnRPM)) gasFlow=false;   
+  if ((rcModeSignal>80)&&(glowPower==outMax)) gasFlow=true;   //Switch on gas when mode switch is flipped on and glow plug is energized
+//  Serial.printnl("step 9 starter rcModeSignal more than 80 "); 
+   if ((RPMAvg>gasOffRPM)||(RPMAvg<gasOnRPM)) gasFlow=false;  
+ //    Serial.printnl("step 9 false ");  
   if (rcModeSignal<20)
+   
   { 
+  //  Serial.printnl("step 9 rcModeSignal less than 20 "); 
     //Donot use AbortAll() as we dont want mode to reset
     gasFlow=false;  //Switch off gas when mode switch is flipped off
     fuelFlow=false;//Switch off fuel valve
